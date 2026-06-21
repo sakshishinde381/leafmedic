@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "LeafMedic",
+    "slug": "leafmedic",
+    "version": "1.0.0",
+    "scheme": "leafmedic",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#F5F9F4"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.leafmedic.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F5F9F4"
+      },
+      "package": "com.leafmedic.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-camera",
+      "expo-image-picker",
+      "expo-font"
+    ]
+  }
+}
