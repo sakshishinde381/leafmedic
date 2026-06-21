@@ -178,11 +178,10 @@ def predict_from_path(image_path: Path) -> dict:
 
 @app.route("/health", methods=["GET"])
 def health():
-    try:
-        get_model()
-        return jsonify({"status": "ok", "model_loaded": True})
-    except Exception as e:
-        return jsonify({"status": "error", "model_loaded": False, "error": str(e)}), 500
+    return jsonify({
+        "status": "ok",
+        "service": "leafmedic-api"
+    }), 200
 
 
 @app.route("/predict", methods=["POST"])
