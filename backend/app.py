@@ -187,38 +187,59 @@ def health():
 @app.route("/predict", methods=["POST"])
 def predict():
     logging.info("Request to /predict received")
+
     if "image" not in request.files and "file" not in request.files:
         return jsonify({"error": "No image provided. Use form key 'image' or 'file'."}), 400
+
     file = request.files.get("image") or request.files.get("file")
+
     if file.filename == "":
         return jsonify({"error": "No file selected."}), 400
+
     if not allowed_file(file.filename):
         return jsonify({"error": "Invalid image type. Use jpg, png, bmp, or webp."}), 400
+
     try:
         get_model()
+
     except FileNotFoundError as e:
-        logging.error(str(e))
-        return jsonify({"error": "Model not available."}), 503
+        logging.exception("Model file missing")
+        return jsonify({
+            "error": "Model not available.",
+            "detail": repr(e)
+        }), 503
+
     except Exception as e:
         logging.exception("Model loading failed")
-        return jsonify({"error": "Model failed to load.", "detail": str(e)}), 503
+        return jsonify({
+            "error": "Model failed to load.",
+            "detail": repr(e)
+        }), 503
+
     try:
         filename = secure_filename(file.filename) or "upload.jpg"
         save_path = BACKEND_ROOT / "uploads"
         save_path.mkdir(exist_ok=True)
+
         full_path = save_path / filename
         file.save(str(full_path))
+
         result = predict_from_path(full_path)
+
         try:
             os.remove(full_path)
         except OSError:
             pass
+
         logging.info(f"Prediction: {result}")
         return jsonify(result)
+
     except Exception as e:
         logging.exception("Prediction failed")
-        return jsonify({"error": "Prediction failed.", "detail": str(e)}), 500
-
+        return jsonify({
+            "error": "Prediction failed.",
+            "detail": str(e)
+        }), 500
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
