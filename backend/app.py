@@ -12,7 +12,7 @@ from tensorflow.keras.models import load_model
 from werkzeug.utils import secure_filename
 
 BACKEND_ROOT = Path(__file__).resolve().parent
-MODEL_PATH = BACKEND_ROOT / "model" / "plant_model.keras"
+MODEL_PATH = BACKEND_ROOT / "model" / "plant_model.h5"
 LEGACY_MODEL_PATH = BACKEND_ROOT / "model" / "plant_model.h5"
 LABELS_PATH = BACKEND_ROOT / "model" / "class_names.txt"
 IMG_SIZE = (224, 224)
