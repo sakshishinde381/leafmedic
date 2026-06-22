@@ -18,7 +18,12 @@
       "adaptiveIcon": {
         "backgroundColor": "#F5F9F4"
       },
-      "package": "com.leafmedic.app"
+      "package": "com.leafmedic.app",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -29,6 +34,13 @@
       "expo-camera",
       "expo-image-picker",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "apiUrl": "https://leafmedic-production.up.railway.app",
+      "router": {},
+      "eas": {
+        "projectId": "014fa11b-44f5-41e8-a962-5f83e0c25ad9"
+      }
+    }
   }
 }

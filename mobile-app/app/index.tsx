@@ -21,6 +21,9 @@ function resolveApiBase() {
   const envBase = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (envBase) return envBase.replace(/\/$/, '');
 
+  const configBase = (Constants.expoConfig?.extra?.apiUrl as string | undefined)?.trim();
+  if (configBase) return configBase.replace(/\/$/, '');
+
   const hostUri = Constants.expoConfig?.hostUri || '';
   const host = hostUri.split(':')[0];
   if (host) return `http://${host}:5000`;

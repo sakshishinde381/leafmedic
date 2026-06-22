@@ -12,13 +12,14 @@ from tensorflow.keras.models import load_model
 from werkzeug.utils import secure_filename
 
 BACKEND_ROOT = Path(__file__).resolve().parent
-MODEL_PATH = BACKEND_ROOT / "model" / "plant_model.h5"
+MODEL_PATH = BACKEND_ROOT / "model" / "plant_model.keras"
 LEGACY_MODEL_PATH = BACKEND_ROOT / "model" / "plant_model.h5"
 LABELS_PATH = BACKEND_ROOT / "model" / "class_names.txt"
 IMG_SIZE = (224, 224)
 UNKNOWN_CLASS_NAME = "unknown"
 UNKNOWN_INFO = "This leaf is not recognized as one of the supported medicinal plant classes."
 MIN_CONFIDENCE = float(os.getenv("PREDICTION_CONFIDENCE_THRESHOLD", "0.6"))
+SUPPORTED_CLASS_NAMES = {"aloe", "guava", "hibiscus", "mango", "neem", "tulsi", UNKNOWN_CLASS_NAME}
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.getenv("CORS_ORIGINS", "*").split(",")
@@ -26,6 +27,34 @@ CORS_ORIGINS = [
 ]
 
 PLANT_INFO = {
+    "aloe": [
+        "Soothes minor burns and skin irritation",
+        "Supports wound healing",
+        "Hydrates dry skin",
+        "Has anti-inflammatory properties",
+        "Traditionally used to support digestion"
+    ],
+    "guava": [
+        "Rich in antioxidants and Vitamin C",
+        "Supports digestion and helps relieve diarrhea",
+        "Has antibacterial properties that help fight infections",
+        "Helps regulate blood sugar levels",
+        "Traditionally used to improve oral and skin health"
+    ],
+    "hibiscus": [
+        "Rich in antioxidants",
+        "Traditionally used to support healthy blood pressure",
+        "Supports hair and scalp care",
+        "May help soothe inflammation",
+        "Often used in herbal teas"
+    ],
+    "mango": [
+        "Traditionally used to support digestion",
+        "Contains antioxidant compounds",
+        "Used in folk remedies for minor skin concerns",
+        "May support blood sugar management",
+        "Leaves are commonly used in herbal preparations"
+    ],
     "neem": [
         "Antibacterial and antifungal",
         "Treats acne and skin infections",
@@ -40,22 +69,7 @@ PLANT_INFO = {
         "Supports respiratory health",
         "Rich in antioxidants"
     ],
-    "aloe": [
-        "Heals burns and wounds",
-        "Soothes skin irritation",
-        "Improves digestion",
-        "Hydrates skin",
-        "Anti-inflammatory"
-    ],
-    
-    "guava": [
-    "Rich in antioxidants and Vitamin C",
-    "Supports digestion and helps relieve diarrhea",
-    "Has antibacterial properties that help fight infections",
-    "Helps regulate blood sugar levels",
-    "Traditionally used to improve oral and skin health"
-],
-    UNKNOWN_CLASS_NAME: UNKNOWN_INFO
+    UNKNOWN_CLASS_NAME: UNKNOWN_INFO,
 }
 
 
@@ -70,11 +84,47 @@ _model = None
 _class_names = []
 
 
+class ModelConfigurationError(RuntimeError):
+    pass
+
+
 def load_class_names(path: Path) -> list:
     if not path.exists():
-        return []
-    with open(path) as f:
-        return [line.strip() for line in f if line.strip()]
+        raise FileNotFoundError(f"Labels file not found: {path}")
+
+    with path.open(encoding="utf-8") as f:
+        class_names = [line.strip().lower() for line in f if line.strip()]
+
+    if not class_names:
+        raise ModelConfigurationError(f"Labels file is empty: {path}")
+
+    duplicate_names = sorted({name for name in class_names if class_names.count(name) > 1})
+    if duplicate_names:
+        raise ModelConfigurationError(f"Duplicate class names in labels file: {duplicate_names}")
+
+    if UNKNOWN_CLASS_NAME not in class_names:
+        raise ModelConfigurationError(f"Labels file must include '{UNKNOWN_CLASS_NAME}'.")
+
+    unsupported_names = sorted(set(class_names) - SUPPORTED_CLASS_NAMES)
+    if unsupported_names:
+        raise ModelConfigurationError(f"Unsupported class names in labels file: {unsupported_names}")
+
+    missing_info = sorted(name for name in class_names if name not in PLANT_INFO)
+    if missing_info:
+        raise ModelConfigurationError(f"Missing PLANT_INFO entries for: {missing_info}")
+
+    return class_names
+
+
+def get_model_output_size(model) -> int:
+    output_shape = model.output_shape
+    if isinstance(output_shape, list):
+        output_shape = output_shape[0]
+
+    if not output_shape or output_shape[-1] is None:
+        raise ModelConfigurationError(f"Could not determine model output size: {output_shape}")
+
+    return int(output_shape[-1])
 
 
 def get_model():
@@ -102,6 +152,13 @@ def get_model():
             compile=False,
         )
         _class_names = load_class_names(LABELS_PATH)
+
+        output_size = get_model_output_size(_model)
+        if output_size != len(_class_names):
+            raise ModelConfigurationError(
+                f"Model output size ({output_size}) does not match labels count "
+                f"({len(_class_names)}). Model: {model_path}. Labels: {LABELS_PATH}."
+            )
     return _model, _class_names
 
 
@@ -152,27 +209,36 @@ def prepare_image_tensor(image_path: Path) -> np.ndarray:
 
 def predict_from_path(image_path: Path) -> dict:
     model, class_names = get_model()
-    if not class_names:
-        return {"plant": UNKNOWN_CLASS_NAME, "confidence": 0.0, "info": "Class names not loaded."}
 
     arr = prepare_image_tensor(image_path)
-    preds = model.predict(arr, verbose=0)[0]
+    preds = np.asarray(model.predict(arr, verbose=0)).squeeze()
+
+    if preds.ndim != 1:
+        return {
+            "plant": UNKNOWN_CLASS_NAME,
+            "confidence": 0.0,
+            "info": "Model returned an invalid prediction shape.",
+        }
+
+    if len(preds) != len(class_names):
+        return {
+            "plant": UNKNOWN_CLASS_NAME,
+            "confidence": 0.0,
+            "info": "Model output and class names are out of sync.",
+        }
+
     idx = int(np.argmax(preds))
     conf = float(preds[idx])
 
-    if idx >= len(class_names):
-        return {
-            "plant": UNKNOWN_CLASS_NAME,
-            "confidence": round(conf, 4),
-            "info": "Model output and class names are out of sync. Retrain or copy matching labels.",
-        }
-
-    plant = class_names[idx]
+    plant = class_names[idx].lower()
+    if plant not in PLANT_INFO:
+        logging.error("Predicted class has no PLANT_INFO entry: %s", plant)
+        plant = UNKNOWN_CLASS_NAME
 
     if plant.lower() != UNKNOWN_CLASS_NAME and conf < MIN_CONFIDENCE:
         plant = UNKNOWN_CLASS_NAME
 
-    info = PLANT_INFO.get(plant.lower(), "Medicinal plant.")
+    info = PLANT_INFO[plant]
     return {"plant": plant, "confidence": round(conf, 4), "info": info}
 
 
