@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
+os.environ.setdefault("KERAS_BACKEND", "tensorflow")
+
+import keras
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras import Model, layers
-from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from keras import Model, layers
+from keras.applications import MobileNetV2
+from keras.applications.mobilenet_v2 import preprocess_input
+from keras.src.legacy.preprocessing.image import ImageDataGenerator
 
 ML_ROOT = Path(__file__).resolve().parents[1]
 SPLITS_DIR = ML_ROOT / "data" / "splits"
@@ -138,7 +141,7 @@ def main() -> None:
 
     model, base_model = build_model(img_size=img_size, num_classes=num_classes, base_dropout=0.25)
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=args.initial_lr),
+        optimizer=keras.optimizers.Adam(learning_rate=args.initial_lr),
         loss="categorical_crossentropy",
         metrics=["accuracy"],
     )
@@ -146,11 +149,11 @@ def main() -> None:
     MODEL_SAVE_DIR.mkdir(parents=True, exist_ok=True)
     checkpoint_path = MODEL_SAVE_DIR / "best_model.keras"
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True),
-        tf.keras.callbacks.ReduceLROnPlateau(
+        keras.callbacks.EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True),
+        keras.callbacks.ReduceLROnPlateau(
             monitor="val_loss", factor=0.4, patience=2, min_lr=1e-7, verbose=1
         ),
-        tf.keras.callbacks.ModelCheckpoint(
+        keras.callbacks.ModelCheckpoint(
             str(checkpoint_path), monitor="val_accuracy", save_best_only=True, verbose=1
         ),
     ]
@@ -171,7 +174,7 @@ def main() -> None:
         layer.trainable = False
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=args.fine_tune_lr),
+        optimizer=keras.optimizers.Adam(learning_rate=args.fine_tune_lr),
         loss="categorical_crossentropy",
         metrics=["accuracy"],
     )

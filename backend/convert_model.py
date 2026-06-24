@@ -1,9 +1,17 @@
-from tensorflow.keras.models import load_model
+import os
+from pathlib import Path
+
+os.environ.setdefault("KERAS_BACKEND", "tensorflow")
+
+import keras
+
+SOURCE_MODEL_PATH = Path("model/plant_model.keras")
+TARGET_MODEL_PATH = Path("model/plant_model.keras")
 
 print("Loading model...")
-model = load_model("model/plant_model.keras", compile=False)
+model = keras.saving.load_model(SOURCE_MODEL_PATH, compile=False)
 
-print("Saving H5 model...")
-model.save("model/plant_model.h5")
+print("Saving Keras model...")
+model.save(TARGET_MODEL_PATH)
 
 print("Done!")

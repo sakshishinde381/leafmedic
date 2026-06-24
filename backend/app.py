@@ -2,18 +2,18 @@ import os
 import logging
 from pathlib import Path
 
+os.environ.setdefault("KERAS_BACKEND", "tensorflow")
+
+import keras
 import numpy as np
 from PIL import Image, ImageOps
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-from tensorflow.keras import layers
-from tensorflow.keras.models import load_model
+from keras.applications.mobilenet_v2 import preprocess_input
 from werkzeug.utils import secure_filename
 
 BACKEND_ROOT = Path(__file__).resolve().parent
 MODEL_PATH = BACKEND_ROOT / "model" / "plant_model.keras"
-LEGACY_MODEL_PATH = BACKEND_ROOT / "model" / "plant_model.h5"
 LABELS_PATH = BACKEND_ROOT / "model" / "class_names.txt"
 IMG_SIZE = (224, 224)
 UNKNOWN_CLASS_NAME = "unknown"
@@ -130,34 +130,17 @@ def get_model_output_size(model) -> int:
 def get_model():
     global _model, _class_names
     if _model is None:
-        class DenseCompat(layers.Dense):
-            def __init__(self, *args, **kwargs):
-                kwargs.pop("quantization_config", None)
-                super().__init__(*args, **kwargs)
+        if not MODEL_PATH.exists():
+            raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
 
-        class InputLayerCompat(layers.InputLayer):
-            def __init__(self, *args, **kwargs):
-                kwargs.pop("optional", None)
-                if "batch_shape" in kwargs and "batch_input_shape" not in kwargs:
-                    kwargs["batch_input_shape"] = kwargs.pop("batch_shape")
-                super().__init__(*args, **kwargs)
-
-        model_path = MODEL_PATH if MODEL_PATH.exists() else LEGACY_MODEL_PATH
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model not found: {MODEL_PATH} or {LEGACY_MODEL_PATH}")
-
-        _model = load_model(
-            model_path,
-            custom_objects={"Dense": DenseCompat, "InputLayer": InputLayerCompat},
-            compile=False,
-        )
+        _model = keras.saving.load_model(MODEL_PATH, compile=False)
         _class_names = load_class_names(LABELS_PATH)
 
         output_size = get_model_output_size(_model)
         if output_size != len(_class_names):
             raise ModelConfigurationError(
                 f"Model output size ({output_size}) does not match labels count "
-                f"({len(_class_names)}). Model: {model_path}. Labels: {LABELS_PATH}."
+                f"({len(_class_names)}). Model: {MODEL_PATH}. Labels: {LABELS_PATH}."
             )
     return _model, _class_names
 

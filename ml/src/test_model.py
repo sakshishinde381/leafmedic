@@ -1,15 +1,16 @@
 import sys
+import os
 from pathlib import Path
 
+os.environ.setdefault("KERAS_BACKEND", "tensorflow")
+
+import keras
 import numpy as np
 from PIL import Image, ImageOps
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-from tensorflow.keras import layers
-from tensorflow.keras.models import load_model
+from keras.applications.mobilenet_v2 import preprocess_input
 
 ML_ROOT = Path(__file__).resolve().parent.parent
 MODEL_PATH = ML_ROOT / "models" / "plant_model.keras"
-LEGACY_MODEL_PATH = ML_ROOT / "models" / "plant_model.h5"
 LABELS_PATH = ML_ROOT / "models" / "class_names.txt"
 IMG_SIZE = (224, 224)
 
@@ -78,9 +79,8 @@ def predict_image(model, class_names: list[str], image_path: Path) -> dict:
 
 
 def main() -> None:
-    selected_model_path = MODEL_PATH if MODEL_PATH.exists() else LEGACY_MODEL_PATH
-    if not selected_model_path.exists():
-        print(f"Model not found: {MODEL_PATH} or {LEGACY_MODEL_PATH}")
+    if not MODEL_PATH.exists():
+        print(f"Model not found: {MODEL_PATH}")
         print("Run ml/src/train.py first.")
         return
 
@@ -101,26 +101,10 @@ def main() -> None:
             print("Usage: python ml/src/test_model.py [image1.jpg] [image2.png]")
             return
 
-    class DenseCompat(layers.Dense):
-        def __init__(self, *args, **kwargs):
-            kwargs.pop("quantization_config", None)
-            super().__init__(*args, **kwargs)
-
-    class InputLayerCompat(layers.InputLayer):
-        def __init__(self, *args, **kwargs):
-            kwargs.pop("optional", None)
-            if "batch_shape" in kwargs and "batch_input_shape" not in kwargs:
-                kwargs["batch_input_shape"] = kwargs.pop("batch_shape")
-            super().__init__(*args, **kwargs)
-
-    model = load_model(
-        selected_model_path,
-        custom_objects={"Dense": DenseCompat, "InputLayer": InputLayerCompat},
-        compile=False,
-    )
+    model = keras.saving.load_model(MODEL_PATH, compile=False)
     class_names = load_class_names(LABELS_PATH)
 
-    print(f"Model: {selected_model_path}")
+    print(f"Model: {MODEL_PATH}")
     print(f"Class names: {class_names}")
     print("-" * 50)
 

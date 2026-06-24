@@ -23,13 +23,13 @@ leafmedic/
 │   │   ├── train.py
 │   │   └── test_model.py
 │   ├── models/
-│   │   ├── plant_model.h5
+│   │   ├── plant_model.keras
 │   │   └── class_names.txt
 │   └── requirements.txt
 ├── backend/
 │   ├── app.py
 │   ├── model/
-│   │   ├── plant_model.h5
+│   │   ├── plant_model.keras
 │   │   └── class_names.txt
 │   └── requirements.txt
 └── mobile-app/
@@ -110,7 +110,7 @@ npm start
 For an installable Android app, build with EAS after setting the same API URL
 in the build environment.
 
-### 1. ML pipeline (Python 3.10+ recommended)
+### 1. ML pipeline (Python 3.11+ required)
 
 **1.1 Create virtualenv and install ML deps**
 
@@ -147,7 +147,7 @@ python ml/src/train.py
 ```
 
 - Saves:
-  - `ml/models/plant_model.h5`
+  - `ml/models/plant_model.keras`
   - `ml/models/class_names.txt`
 
 **1.5 Test inference (optional)**
@@ -164,7 +164,7 @@ python ml/src/test_model.py
 **2.1 Copy model into backend**
 
 ```powershell
-copy c:\Users\Acer\Desktop\new\leafmedic\ml\models\plant_model.h5 c:\Users\Acer\Desktop\new\leafmedic\backend\model\
+copy c:\Users\Acer\Desktop\new\leafmedic\ml\models\plant_model.keras c:\Users\Acer\Desktop\new\leafmedic\backend\model\
 copy c:\Users\Acer\Desktop\new\leafmedic\ml\models\class_names.txt c:\Users\Acer\Desktop\new\leafmedic\backend\model\
 ```
 
@@ -233,7 +233,7 @@ To **only** run the preprocessing step (split raw images into train/val/test):
   Create `ml/data/raw/` and subfolders `neem`, `tulsi`, `aloe`, then add images and run `preprocess.py` again.
 
 - **"Model not found" (backend)**  
-  Copy `plant_model.h5` and `class_names.txt` from `ml/models/` to `backend/model/` after training.
+  Copy `plant_model.keras` and `class_names.txt` from `ml/models/` to `backend/model/` after training.
 
 - **CORS / network errors in app**  
   Use your machine’s IP (not `localhost`) for `EXPO_PUBLIC_API_URL` when testing on a real device or another machine.

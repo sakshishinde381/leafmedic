@@ -1,16 +1,17 @@
 import argparse
 import json
+import os
 from pathlib import Path
 
+os.environ.setdefault("KERAS_BACKEND", "tensorflow")
+
+import keras
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import tensorflow as tf
 from PIL import Image
-from tensorflow.keras import layers
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from keras.applications.mobilenet_v2 import preprocess_input
+from keras.src.legacy.preprocessing.image import ImageDataGenerator
 
 ML_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SPLITS_DIR = ML_ROOT / "data" / "splits"
@@ -20,23 +21,7 @@ DEFAULT_CLASS_NAMES_PATH = DEFAULT_MODELS_DIR / "class_names.txt"
 
 
 def load_keras_model(model_path: Path):
-    class DenseCompat(layers.Dense):
-        def __init__(self, *args, **kwargs):
-            kwargs.pop("quantization_config", None)
-            super().__init__(*args, **kwargs)
-
-    class InputLayerCompat(layers.InputLayer):
-        def __init__(self, *args, **kwargs):
-            kwargs.pop("optional", None)
-            if "batch_shape" in kwargs and "batch_input_shape" not in kwargs:
-                kwargs["batch_input_shape"] = kwargs.pop("batch_shape")
-            super().__init__(*args, **kwargs)
-
-    return load_model(
-        model_path,
-        custom_objects={"Dense": DenseCompat, "InputLayer": InputLayerCompat},
-        compile=False,
-    )
+    return keras.saving.load_model(model_path, compile=False)
 
 
 def get_class_names(train_dir: Path) -> list[str]:
@@ -244,10 +229,7 @@ def main() -> None:
 
     model_path = args.models_dir / "plant_model.keras"
     if not model_path.exists():
-        legacy = args.models_dir / "plant_model.h5"
-        if not legacy.exists():
-            raise FileNotFoundError(f"Model not found: {model_path} or {legacy}")
-        model_path = legacy
+        raise FileNotFoundError(f"Model not found: {model_path}")
     model = load_keras_model(model_path)
 
     history_path = resolve_history_path(args.history_path, args.models_dir)
